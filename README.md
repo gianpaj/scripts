@@ -12,3 +12,6 @@ Simple scripts (nothing artistic) that I've used. Sadly not all my scripts can b
 - "shard.sh": bash script that sets up a 3-shard cluster and imports data from Twitter in json format.
 
 - "apt-key-manual_10gen.sh": quick, little script to pull down 10gen gpg key for "aptitude" package manage when Ubuntu key-server is non-responsive (which sadly happens too frequently)
+
+
+Usage: for all the above scripts, make executable via "chmod a+x $script" and execute or "bash $script" for the shell scripts and "perl $script" for the perl scripts etc.
