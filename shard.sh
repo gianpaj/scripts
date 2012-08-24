@@ -189,7 +189,7 @@ mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
 
 for coll in $hashtags
 do
-    echo -e "\n Sharding $coll\n"
+    echo -e "\n Retrieving hastag $coll.....\n"
     curl -s https://search.twitter.com/search.json?q=%23$coll >> $twitter_json      # Used 'tee' initially but too much standard output.
     echo "" >> $twitter_json
 done
