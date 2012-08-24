@@ -173,7 +173,7 @@ done
 # Enabling sharding & using Twitter to import some data into the mongos now.
 
 mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
-[ $(mongo admin --eval 'sh.status()' | egrep 'twitter.*part.*true) -eq 1 ] && echo -e "Successfully sharded Twitter DB, woot!\n"
+[ $(mongo admin --eval 'sh.status()' | egrep -c 'twitter.*part.*true') -eq 1 ] && echo -e "Successfully sharded Twitter DB, woot!\n"
 
 # Using Twitter to collate some data 
 
