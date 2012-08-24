@@ -147,6 +147,7 @@ fi
     mongo admin --eval 'db.runCommand( { addshard : "localhost:10033" } )'
     mongo admin --eval 'sh.status()'
 for i in 11 22 33
+do
     echo -e "Added shard on port 100$i.....\n"
 done
     
