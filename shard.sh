@@ -6,7 +6,7 @@
 # Cleaning up by killing other mongod shardsvr processes.
 
 # TO DO: Improve error handling
-# TO DO: Include a "-h" & "-y" options at least
+# TO DO: Include a "-h" & "-y" options at least - i.e. include some positional parameters to differentiate with interactive mode.
 # TO DO: More clever around "sleeping"
 
 set -e
@@ -36,9 +36,9 @@ fi
 # As this is only testing, we'll create the data directories under the home directory. This will also ensure that we don't have to worry about permissions issues.
 
 d_dirs="
-$HOME/data/db/11
-$HOME/data/db/22
-$HOME/data/db/33
+$HOME/data/db/00
+$HOME/data/db/01
+$HOME/data/db/02
 "
 
 cdir="$HOME/data/db/config"
@@ -119,7 +119,7 @@ done
 
 $mongod --configsvr --dbpath $cdir --port $s_port --fork --logpath $ldir/configdb.log
 
-sleep 30 # Sleeping for 30 seconds......
+sleep 60 # Sleeping.....
 
 # Ensuring that all mongods have started up correctly!
 
@@ -139,47 +139,46 @@ fi
 
 $mongos --configdb localhost:$s_port --chunkSize 1 --fork --logpath $ldir/mongos.log
 
-sleep 60 # Sleeping for a minute as everything has to be rebuilt due to all the data being removed.......
+sleep 180 # Sleeping.....
 
 # Ensuring that the mongos has started up correctly!
 
 if [ $(ps auwx | grep -c 'mongos'| grep -v grep) -lt 1 ]
 then
-    echo -e "There seems to be a problem starting the mongos, please examine the debug information in the mongos mongos.log file in $ldir.\n"
+    echo -e "There seems to be a problem starting the mongos, please examine the debug information in the mongos.log file in $ldir.\n"
     echo -e "Now exiting!\n"
     exit 13
 else
-    echo -e "It looks like the mongos has started correctly. Wuhoo again!\n"
+    echo -e "It looks like the mongos has started correctly. Wuhoo!\n"
 fi
 
 # Configuring the shards - first adding the shards, then sharding the db and the collections. Unable to get the "addshard command to pick up localhost using a variable from a for loop."
 
-    mongo admin --eval 'db.runCommand( { addshard : "localhost:10011" } )'
-    mongo admin --eval 'db.runCommand( { addshard : "localhost:10022" } )'
-    mongo admin --eval 'db.runCommand( { addshard : "localhost:10033" } )'
+    mongo admin --eval 'db.runCommand( { addshard : "localhost:10000" } )'
+    mongo admin --eval 'db.runCommand( { addshard : "localhost:10001" } )'
+    mongo admin --eval 'db.runCommand( { addshard : "localhost:10002" } )'
 
 # Checking the shards have been created successfully.
 
-for i in 11 22 33
+for dir in $d_dirs
 do
+    i=$(echo $dir | awk -F/ '{print $NF}')
     [ $(mongo admin --eval 'sh.status()' | grep -c :100$i) -eq 1 ] && echo -e "Added shard on port 100$i.....\n"
 done
-    
 
 # Enabling sharding & using Twitter to import some data into the mongos now.
 
 mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
 [ $(mongo admin --eval 'sh.status()' | egrep -c 'twitter.*part.*true') -eq 1 ] && echo -e "Successfully sharded Twitter DB, woot!\n"
 
-# Using Twitter to collate some data 
+# Using the "real" Twitter to collate some data 
 
 for coll in $hashtags
 do
     echo -e "\n Sharding $coll\n"
     curl -s https://search.twitter.com/search.json?q=%23$coll >> $twitter_json      # Used 'tee' initially but too much standard output.
+    echo "" >> $twitter_json
 done
-
-echo "HOT HERE\n"
 
 # Importing data into the "tweets" collection in the twitter database and sharding the collection.
 
