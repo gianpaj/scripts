@@ -8,6 +8,7 @@
 # TO DO: Improve error handling
 # TO DO: Include a "-h" & "-y" options at least - i.e. include some positional parameters to differentiate with interactive mode.
 # TO DO: More clever around "sleeping"
+# TO DO: Tidy up index creation and sharding section.
 
 set -e
 
@@ -56,7 +57,7 @@ del="rm -rf"
 for all in $all_dirs
 do
   [ ! -d $all ] && mkdir -p $all                                                        # Ensuring all required directories are created.
-  [ -d $all ] && $del $all/* && echo -e "Removing old sharding & config data.\n"      # If they are created, removing the redundant data so we have a clean start.
+  [ -d $all ] && $del $all/* && echo -e "\nRemoving old sharding & config data."      # If they are created, removing the redundant data so we have a clean start.
 done
 
 # I use Twitter hashtags to pull down data in json format.
@@ -69,12 +70,25 @@ football
 FF
 FollowFriday
 security
+soccer
+epl
+premiership
+nba
+nfl
+mlb
+nhl
+laliga
+news
+cloud
+bigdata
+xfactor
+ladygaga
 "
 s_port="20000" # MongoS port
 
 # Asking where is mongod, as we may want to test a non-default version
 
-echo -e "Is mongod @ $(which mongod) (y/n)?\n"
+echo -e "\nIs mongod @ $(which mongod) (y/n)?\n"
 read answer_d
 
 if [ "$answer_d" == "y" ]
@@ -85,7 +99,7 @@ else
     read mongod
 fi
 
-echo -e "mongod is at $mongod\n"
+echo -e "\nmongod is at $mongod\n"
 
 # Asking where is mongos, as we may be testing a different version
 
@@ -99,7 +113,7 @@ else
     echo -e "What is the full path to mongos?\n"
     read mongos
 fi
-echo -e "mongos is here at $mongos\n"
+echo -e "\nmongos is here at $mongos\n"
 
 # This is where stuff happens.....
 
@@ -134,7 +148,7 @@ then
     echo -e "Now exiting!\n"
     exit 12
 else
-    echo -e "It looks like the three mongod shards and the config server have all started correctly. Wuhoo!\n"
+    echo -e "\nIt looks like the three mongod shards and the config server have all started correctly. Wuhoo!\n"
 fi
 
 $mongos --configdb localhost:$s_port --chunkSize 1 --fork --logpath $ldir/mongos.log
@@ -149,7 +163,7 @@ then
     echo -e "Now exiting!\n"
     exit 13
 else
-    echo -e "It looks like the mongos has started correctly. Wuhoo!\n"
+    echo -e "\nIt looks like the mongos has started correctly. Wuhoo!\n"
 fi
 
 # Configuring the shards - first adding the shards, then sharding the db and the collections. Unable to get the "addshard command to pick up localhost using a variable from a for loop."
@@ -181,9 +195,11 @@ do
 done
 
 # Importing data into the "tweets" collection in the twitter database and sharding the collection.
+# This section needs tidied up.
 
     mongoimport -d twitter -c tweets --file $twitter_json
-    mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {from_user: 1 , created_at: 1} } )'
+    mongo twitter --eval 'db.tweets.ensureIndex({"query":1, "max_id":1})'            # Creating an index so we subsequently create a shard key over it.
+    mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {"query": 1, "max_id": 1} } )'
 
 # Tidy up - deleting the json file.
 $del $twitter_json
