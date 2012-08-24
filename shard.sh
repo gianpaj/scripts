@@ -107,7 +107,7 @@ done
 
 $mongod --configsvr --dbpath $cdir --port $s_port --fork --logpath $ldir/configdb.log
 
-sleep 10 # Sleeping......
+sleep 30 # Sleeping for 30 seconds......
 
 # Ensuring that all mongods have started up correctly!
 
@@ -127,7 +127,7 @@ fi
 
 $mongos --configdb localhost:$s_port --chunkSize 1 --fork --logpath $ldir/mongos.log
 
-sleep 60 # Sleeping for a minute as everything has to be rebuilt due to all the data being removed.......
+sleep 180 # Sleeping for 3 minutes as everything has to be rebuilt due to all the data being removed.......
 
 # Ensuring that the mongos has started up correctly!
 
@@ -142,17 +142,19 @@ fi
 
 # Configuring the shards - first adding the shards, then sharding the db and the collections
 
-#for i in 1 2 3
-#do
-    mongo admin --eval 'db.runCommand( { addshard : "localhost:10001" } )'
-    mongo admin --eval 'db.runCommand( { addshard : "localhost:10002" } )'
-    mongo admin --eval 'db.runCommand( { addshard : "localhost:10003" } )'
-#   && echo -e "Adding shard 3....\n"
-#done
+    mongo admin --eval 'db.runCommand( { addshard : "localhost:10011" } )'
+    mongo admin --eval 'db.runCommand( { addshard : "localhost:10022" } )'
+    mongo admin --eval 'db.runCommand( { addshard : "localhost:10033" } )'
+    mongo admin --eval 'sh.status()'
+for i in 11 22 33
+    echo -e "Added shard on port 100$i.....\n"
+done
     
 # Enabling sharding & using Twitter to import some data into the mongos
 
-mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
+sleep 5.....
+mongo twitter --eval 'db.runCommand( { enablesharding : "twitter" } )'
+echo -e "Sharded Twitter DB\n"
 
 for coll in $hashtag
 do
