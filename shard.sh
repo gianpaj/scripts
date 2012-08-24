@@ -70,6 +70,19 @@ football
 FF
 FollowFriday
 security
+soccer
+epl
+premiership
+nba
+nfl
+mlb
+nhl
+laliga
+news
+cloud
+bigdata
+xfactor
+ladygaga
 "
 s_port="20000" # MongoS port
 
