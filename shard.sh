@@ -183,10 +183,7 @@ done
 # Importing data into the "tweets" collection in the twitter database and sharding the collection.
 
     mongoimport -d twitter -c tweets --file $twitter_json
-echo "HOT HERE1\n"
     mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {from_user: 1 , created_at: 1} } )'
-echo "HOT HERE2\n"
 
-# Tidy up - deleting the json file as I like to have fresh data.
-
+# Tidy up - deleting the json file.
 $del $twitter_json
