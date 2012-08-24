@@ -64,14 +64,10 @@ done
 hashtags="
 olympics
 jobs
-premiership
-ff
-FollowFriday
-football
 business
-soccer
-epl
-jobfairy
+football
+FF
+FollowFriday
 security
 "
 s_port="20000" # MongoS port
@@ -180,13 +176,17 @@ mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
 for coll in $hashtags
 do
     echo -e "\n Sharding $coll\n"
-    curl https://search.twitter.com/search.json?q=%23$coll |  tee -ai $twitter_json
+    curl -s https://search.twitter.com/search.json?q=%23$coll >> $twitter_json      # Used 'tee' initially but too much standard output.
 done
+
+echo "HOT HERE\n"
 
 # Importing data into the "tweets" collection in the twitter database and sharding the collection.
 
-    mongoimport -d twitter -c tweets
+    mongoimport -d twitter -c tweets --file $twitter_json
+echo "HOT HERE1\n"
     mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {from_user: 1 , created_at: 1} } )'
+echo "HOT HERE2\n"
 
 # Tidy up - deleting the json file as I like to have fresh data.
 
