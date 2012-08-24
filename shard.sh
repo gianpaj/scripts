@@ -1,9 +1,14 @@
 #!/bin/bash
 
 # Small shell script to set up sharded MongoDB server.
-# Once this script is run, further configuration is required through the Mongo Shell - please see shard.txt.
 # Currently this script assumes that you have mongod and mongos installed, I know it's a little pre-sumptious but hey :)
+# This script then starts a sharded cluster from scratch (all elements),shards a database, pulls down json data from the Interwebs and imports it into a collection in a database and in turn shards that collection.
 # Cleaning up by killing other mongod shardsvr processes.
+
+# TO DO: Improve error handling
+# TO DO: Include a "-h" & "-y" options at least
+# TO DO: More clever around "sleeping"
+
 set -e
 
 
@@ -37,18 +42,21 @@ $HOME/data/db/33
 "
 
 cdir="$HOME/data/db/config"
-ldir="/tmp/shard"
+ldir="/var/tmp/shard"
 
 all_dirs="
 $cdir
 $ldir
 $d_dirs
 "
+twitter_json="/var/tmp/twitter.json"                                                    # JSON file for the data input to create the sharded collection
+
+del="rm -rf"
 
 for all in $all_dirs
 do
   [ ! -d $all ] && mkdir -p $all                                                        # Ensuring all required directories are created.
-  [ -d $all ] && rm -rf $all/* && echo -e "Removing old sharding & config data.\n"      # If they are created, removing the redundant data so we have a clean start.
+  [ -d $all ] && $del $all/* && echo -e "Removing old sharding & config data.\n"      # If they are created, removing the redundant data so we have a clean start.
 done
 
 # I use Twitter hashtags to pull down data in json format.
@@ -57,6 +65,14 @@ hashtags="
 olympics
 jobs
 premiership
+ff
+FollowFriday
+football
+business
+soccer
+epl
+jobfairy
+security
 "
 s_port="20000" # MongoS port
 
@@ -127,7 +143,7 @@ fi
 
 $mongos --configdb localhost:$s_port --chunkSize 1 --fork --logpath $ldir/mongos.log
 
-sleep 180 # Sleeping for 3 minutes as everything has to be rebuilt due to all the data being removed.......
+sleep 60 # Sleeping for a minute as everything has to be rebuilt due to all the data being removed.......
 
 # Ensuring that the mongos has started up correctly!
 
@@ -140,26 +156,38 @@ else
     echo -e "It looks like the mongos has started correctly. Wuhoo again!\n"
 fi
 
-# Configuring the shards - first adding the shards, then sharding the db and the collections
+# Configuring the shards - first adding the shards, then sharding the db and the collections. Unable to get the "addshard command to pick up localhost using a variable from a for loop."
 
     mongo admin --eval 'db.runCommand( { addshard : "localhost:10011" } )'
     mongo admin --eval 'db.runCommand( { addshard : "localhost:10022" } )'
     mongo admin --eval 'db.runCommand( { addshard : "localhost:10033" } )'
-    mongo admin --eval 'sh.status()'
+
+# Checking the shards have been created successfully.
+
 for i in 11 22 33
 do
-    echo -e "Added shard on port 100$i.....\n"
+    [ $(mongo admin --eval 'sh.status()' | grep -c :100$i) -eq 1 ] && echo -e "Added shard on port 100$i.....\n"
 done
     
-# Enabling sharding & using Twitter to import some data into the mongos
 
-sleep 5.....
-mongo twitter --eval 'db.runCommand( { enablesharding : "twitter" } )'
-echo -e "Sharded Twitter DB\n"
+# Enabling sharding & using Twitter to import some data into the mongos now.
 
-for coll in $hashtag
+mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
+[ $(mongo admin --eval 'sh.status()' | egrep 'twitter.*part.*true) -eq 1 ] && echo -e "Successfully sharded Twitter DB, woot!\n"
+
+# Using Twitter to collate some data 
+
+for coll in $hashtags
 do
     echo -e "\n Sharding $coll\n"
-    curl https://search.twitter.com/search.json?q=%23$coll | mongoimport -d twitter -c $coll
-    mongo admin --eval 'db.runCommand( { shardcollection : "twitter.$coll", key : {name : 1} } )'
+    curl https://search.twitter.com/search.json?q=%23$coll |  tee -ai $twitter_json
 done
+
+# Importing data into the "tweets" collection in the twitter database and sharding the collection.
+
+    mongoimport -d twitter -c tweets
+    mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {from_user: 1 , created_at: 1} } )'
+
+# Tidy up - deleting the json file as I like to have fresh data.
+
+$del $twitter_json
