@@ -13,17 +13,51 @@
 
 set -e
 
-# Check if there are mongod processes running and cleaning up, if desired.
+# Declaring the USAGE variable
 
-USAGE="Usage: `basename $0` [-hv] [-o arg] args. By default, the script is run interactively and you will be prompted for various options around mongod, mongos, data file location and importing the data."
+USAGE="Usage: `basename $0` [-fhiv] [-o arg] args. To run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
+
+# Checking that the script is run with an option
+if (($# == 0))
+then
+    echo -e "\nPlease run with a valid option! Help is printed with '-h'."
+    echo -e "\n$USAGE\n";
+    exit $E_OPTERROR;
+fi
 
 # Parse command line options.
-while getopts hvo: OPT
+# There were several "getopts" tutorials that were helpful but I should at reference this one - http://wiki.bash-hackers.org/howto/getopts_tutorial
+while getopts hvfijo: OPT
 do
     case "$OPT" in
+        f)
+            byebye="y"
+            remove="y"
+            answer_d="y"
+            answer_s="y"
+            import="y"
+        ;;
         h)
-            echo $USAGE
+            echo -e "\n$USAGE\n";
+            echo "-f: Forcibly answer yes for everything". One of '-f' or '-i' are compulsory.;
+            echo "-h: Help";
+            echo "-i: Run in interactive mode. One of '-f' or '-i' are compulsory."
+            echo "-o: Output to file (requires an argument)";
+            echo "-v: Version Information.";
+            echo -e "\nAll other options are currently invalid.\n";
             exit 0;
+        ;;
+        i) # The interactive questions over and done with :) Putting them all together to enable a "force-yes" option, there must be a cleaner way though.
+            echo -e "As we're testing, is it ok to kill any mongod and mongos processes that may be running (y/n)?\n";
+            read byebye
+            echo -e "\nHave you previously run this script and want to remove your original data (y/n)? Entering 'y' means that all previous sharding and config data will be removed.\n"
+            read remove
+            echo -e "\nIs mongod @ $(which mongod) (y/n)?\n"
+            read answer_d
+            echo -e "Is mongos @ $(which mongos) (y/n)?\n"
+            read answer_s
+            echo -e "\n To allow the script perform its default action and import data from the Interwebs, enter 'y'.\n To import your own json data via 'mongoimport', enter 'j'.\n To import a bson dump with mongorestore, enter 'b'.\n";
+            read import
         ;;
         v)
             echo "`basename $0` version 0.2"
@@ -31,9 +65,14 @@ do
         ;;
         o) OUTPUT_FILE=$OPTARG
         ;;
-        *)
+        \?)
+            echo "Invalid option: -$OPTARG" >&2;
             echo $USAGE 1>&2
-            exit 9;
+            exit 1;
+        ;;
+        :)
+            echo "The option -$OPTARG must have an argument." 1>&2
+            exit 1
         ;;
     esac
 done
@@ -41,8 +80,6 @@ done
 if [ $(ps auwx | grep -c mongod | grep -v grep) -gt 1 ]
 then
     echo -e "\nThere are currently some mongo(d|s) processes running!!!!\n";
-    echo -e "As we're testing, is it ok to kill all mongod and mongos process (y/n)?\n";
-    read byebye
     case "$byebye" in
         y|Y) killall mongod mongos
             ;;
@@ -87,8 +124,7 @@ do
   [ ! -d $all ] && mkdir -p $all # Ensuring all required directories are created.
 done
 
-echo -e "\nHave you previously run this script and want to remove your original data (y/n)? Entering 'y' means that all previous sharding and config data will be removed.\n"
-read remove
+# Here we remove or keep the shard data based on the value of the $remove variable.
 case "$remove" in
     y|Y) [ -d $all ] && $del $all/* && echo -e "\nRemoving old sharding & config data.\n" # If they are created, removing the redundant data so we have a clean start.
     ;;
@@ -129,11 +165,7 @@ ladygaga
 s_port="20000" # MongoS port
 
 # Following code block defines mongod and mongos. Provides the ability to run different versions of mongod and mongos...woot!!!
-
-# Asking where is mongod, as we may want to test a non-default version. 
-
-echo -e "\nIs mongod @ $(which mongod) (y/n)?\n"
-read answer_d
+# Defining the version of mongod, as per the $answer_d variable.
 
 case "$answer_d" in
     y|Y) mongod=$(which mongod)
@@ -147,10 +179,7 @@ esac
 
 echo -e "\nmongod is at $mongod\n"
 
-# Asking where is mongos, as we may be testing a different version for compatibility testing with mongod
-
-echo -e "Is mongos @ $(which mongos) (y/n)?\n"
-read answer_s
+# Defining the version of mongos, as per the $answer_d variable.
 
 case "$answer_s" in
     y|Y) mongos=$(which mongos)
@@ -237,12 +266,10 @@ mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
 [ $(mongo admin --eval 'sh.status()' | egrep -c 'twitter.*part.*true') -eq 1 ] && echo -e "Successfully sharded Twitter DB, woot!\n"
 
 # Importing data into the "tweets" collection in the twitter database. This can be dynamically with an Interet connection via Twitter or via a local file.
-
-echo -e "\n To let the script import data from the Interwebs, enter 's'.\n To import your own json data via 'mongoimport', enter 'j'.\n To import a bson dump with mongorestore, enter 'b'.\n";
-read import
+# The method of import depends on the setting of the $import variable.
 
 case "$import" in
-    s|S) # Using the "real" Twitter to collate some data
+    y|Y) # Using the "real" Twitter to collate some data
         echo "Checking internet connectivity (pinging google.com)"
         curl -s -o /dev/null www.google.com 2>&1
         if [ $? -eq 0 ]
