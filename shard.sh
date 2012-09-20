@@ -39,6 +39,20 @@ do
             answer_s="y"
             import="y"
         ;;
+        fb)
+            byebye="y"
+            remove="y"
+            answer_d="y"
+            answer_s="y"
+            import="b"
+        ;;
+        fj)
+            byebye="y"
+            remove="y"
+            answer_d="y"
+            answer_s="y"
+            import="j"
+        ;;
         h)
             echo -e "\n$USAGE\n";
             echo "-f: Forcibly answer yes for everything. Dynamically imports a json file created from retrieving Twitter hashtags.";
@@ -62,20 +76,6 @@ do
             read answer_s
             echo -e "\n To allow the script perform its default action and import data from the Interwebs, enter 'y'.\n To import your own json data via 'mongoimport', enter 'j'.\n To import a bson dump with mongorestore, enter 'b'.\n";
             read import
-        ;;
-        b)
-            byebye="y"
-            remove="y"
-            answer_d="y"
-            answer_s="y"
-            import="b"
-        ;;
-        m)
-            byebye="y"
-            remove="y"
-            answer_d="y"
-            answer_s="y"
-            import="m"
         ;;
         v)
             echo -e "\nVersion 0.3 of $(basename $0)\n";
