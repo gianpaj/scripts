@@ -18,7 +18,7 @@ set -e
 USAGE="Usage: `basename $0` [-fhiv] [-b arg] [-m arg] [-o arg] args. To run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
 
 # Checking that the script is run with an option
-if [ $# == 0 ]
+if [ $# -eq 0 ]
 then
     echo -e "\nPlease run with a valid option! Help is printed with '-h'."
     echo -e "\n$USAGE\n";
@@ -28,22 +28,22 @@ fi
 # Some basic checking to see if MongoD is installed.
 
 which mongod
-if [ ! $? == "0" ]
+if [ ! $? -eq "0" ]
 then
     which apt-get
-    if [ $? == 0 ]
+    if [ $? -eq 0 ]
     then
         echo -e "\nYou seem to be running a Ubuntu distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian-or-ubuntu-linux/ for further information on installing MongoDB for Ubuntu.\n";
         exit 1;
     fi
     which yum
-    if [ $? == 0 ]
+    if [ $? -eq 0 ]
     then
         echo -e "\nYou seem to be running a Red Hat distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-redhat-centos-or-fedora-linux/ for further information on installing MongoDB for Red Hat.\n";
         exit 1;
     fi
     uname -a | grep Darwin
-    if [ $? == 0 ]
+    if [ $? -eq 0 ]
     then
         echo -e "\nYou seem to be running on OSX, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-os-x/ for further information on installing MongoDB for Mac OS.\n";
     else
@@ -312,14 +312,14 @@ mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
 
 case "$import" in
     y|Y) # Using the "real" Twitter to collate some data
-        echo "Checking internet connectivity (pinging google.com)"
+        echo "\nChecking internet connectivity (http get to google.com)\n";
         curl -s -o /dev/null www.google.com 2>&1
         if [ $? -eq 0 ]
         then
-            echo -e "\nInterweb connectivity looks good!\n"
+            echo -e "\nInterweb connectivity looks good!\n";
             for coll in $hashtags
             do
-                echo -e "\n Retrieving hashtag $coll.....\n"
+                echo -e "\n Retrieving hashtag $coll.....\n";
                 curl -s https://search.twitter.com/search.json?q=%23$coll >> $twitter_json # Used 'tee' initially but too much standard output.
                 echo "" >> $twitter_json
             done
@@ -356,10 +356,10 @@ case "$import" in
     ;;
 esac
 
-# Sharding the tweets collection.
+# Creating an index so we subsequently create a shard key over it and then sharding the tweets collection.
 
-    mongo twitter --eval 'db.tweets.ensureIndex({"query":1, "max_id":1})' # Creating an index so we subsequently create a shard key over it.
+    mongo twitter --eval 'db.tweets.ensureIndex({"query":1, "max_id":1})'
     mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {"query": 1, "max_id": 1} } )'
 
 # Tidy up - deleting the json file that we created from Twitter hashtags.
-$del $twitter_json
+#$del $twitter_json
