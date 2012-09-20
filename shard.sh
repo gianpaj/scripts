@@ -6,16 +6,13 @@
 
 # This script runs in interactive mode by default.
 
-# TO DO: Improve error handling
-# TO DO: Include a "-h" & "-y" options at least - i.e. include some positional parameters to differentiate with interactive mode.
 # TO DO: More clever around "sleeping"
-# TO DO: Tidy up index creation and sharding section.
 
 set -e
 
 # Declaring the USAGE variable
 
-USAGE="Usage: `basename $0` [-fhiv] [-b arg] [-m arg] [-o arg] args. To run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
+USAGE="Usage: $(basename $0) [-fhiv] [-fb arg] [-fj arg] [-o arg]. To run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
 
 # Checking that the script is run with an option
 if [ $# -eq 0 ]
@@ -38,11 +35,11 @@ do
         ;;
         h)
             echo -e "\n$USAGE\n";
-            echo "-b: Forcibly answer yes for everything but reference a bsondump file as an argument.";
             echo "-f: Forcibly answer yes for everything. Dynamically imports a json file created from retrieving Twitter hashtags.";
+            echo "-fb: Forcibly answer yes for everything but reference a bsondump file as an argument.";
+            echo "-fj: Forcibly answer yes for everything but reference a json file as an argument.";
             echo "-h: Help";
-            echo "-i: Run in interactive mode. One of '-f' or '-i' are compulsory."
-            echo "-m: Forcibly answer yes for everything but reference a json file as an argument.";
+            echo "-i: Run in interactive mode. One of '-f' or '-i' are compulsory. Run this option if you want to have different or non-default versions of mongod and mongos."
             echo "-o: Output to file (requires an argument)";
             echo "-v: Version Information.";
             echo -e "\nAll other options are currently invalid.\n";
@@ -75,7 +72,7 @@ do
             import="m"
         ;;
         v)
-            echo "`basename $0` version 0.3"
+            echo -e "\nVersion 0.3 of $(basename $0)\n";
             exit 0;
         ;;
         o) OUTPUT_FILE=$OPTARG
@@ -138,11 +135,12 @@ $ldir
 $d_dirs
 "
 twitter_json="/var/tmp/twitter.json" # JSON file for the data input to create the sharded collection
+temp="/var/tmp/temp.json" # JSON file for the data input to create the sharded collection
 
 del="rm -rf"
 
 # Additional parameters for both mongod and mongos
-#MONGOD_PARAMS="--nojournal --noprealloc" # These options make MongoD quicker to load, NEVER run without a journal in production btw!!!
+#MONGOD_PARAMS="--nojournal --noprealloc" These options make MongoD quicker to load, NEVER run without a journal in production btw!!!
 MONGOD_PARAMS="--noprealloc"
 MONGOS_PARAMS=""
 
@@ -320,35 +318,42 @@ case "$import" in
                 curl -s https://search.twitter.com/search.json?q=%23$coll >> $twitter_json # Used 'tee' initially but too much standard output.
                 echo "" >> $twitter_json
             done
+# Just making the twitter.json larger so that chunks actually split across the shards.
+            for i in {1..3}
+            do
+                cp $twitter.json >> $temp.json
+                cat $temp.json >> $twitter.json
+            done
+            $del $temp.json # Cleaning up.
             mongoimport -d twitter -c tweets --file $twitter_json && echo -e "\nImporting the dynamically created twitter.json file.\n" # Importing the data retrieved from the Interweb.
             else
-            echo -e "\nHTTP GET to google has failed. Please verify you have network connectivity and HTTP outbound is allowed. Surely, it is? It's only a test, not a production DB with real, production data, is it?\n"
+                echo -e "\nHTTP GET to Google has failed. Please verify you have network connectivity and HTTP outbound is allowed (unless Google is actually down :S). Surely, it is? It's only a test, not a production DB with real, production data, is it?\n"
             exit 16;
         fi
         ;;
-    j|J) echo -e "\nPlease provide the filename (including the full path) of your json file to be imported.\n"
+    j|J) echo -e "\nImporting bson file.\n";
         read $import_file
         suffix=$(echo $import_file | awk -F. '{print $NF}')
-        if [ $suffix = "json"]
+        if [ $suffix == "json"]
         then
         mongoimport -d twitter -c tweets --file $import_file && echo -e "\nImporting $import_file. The database is called 'twitter' and the collection is 'tweets'."
         else
-            echo -e ""\nPlease provide a valid json file for import. Now exiting, bye bye!\n";"
+            echo -e "\nPlease provide a valid json file for import. Now exiting, bye bye!\n";
         exit 17;
         fi
         ;;
-    b|B) echo -e "\nPlease provide the filename (including the full path) of your bson file to be imported.\n"
+    b|B) echo -e "\nImporting bson file.\n";
          read $import_file
          suffix=$(echo $import_file | awk -F. '{print $NF}')
-         if [ $suffix = "bson"]
+         if [ $suffix == "bson"]
          then
              mongorestore --objcheck -d twitter -c tweets $import_file && echo -e "\nImporting $import_file. The database is called 'twitter' and the collection is 'tweets'."
          else
-             echo -e ""\nPlease provide a valid bson file for import. Now exiting, bye bye!\n";"
+             echo -e "\nPlease provide a valid bson file for import. Now exiting, bye bye!\n";
              exit 18;
          fi
     ;;
-    *) echo -e "\nPlease enter 's', 'j' or 'b', nothing-else (case-insensitive). Now exiting, bye bye!\n";
+    *) echo -e "\nIf in interactive mode, please enter 's', 'j' or 'b', nothing-else (case-insensitive). Now exiting, bye bye!\n";
     exit 19;
     ;;
 esac
@@ -359,4 +364,4 @@ esac
     mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {"query": 1, "max_id": 1} } )'
 
 # Tidy up - deleting the json file that we created from Twitter hashtags.
-#$del $twitter_json
+$del $twitter_json
