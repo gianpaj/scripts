@@ -6,7 +6,13 @@
 
 # This script runs in interactive mode by default.
 
-# TO DO: More clever around "sleeping"
+# TO DO: More clever around "sleeping".
+# TO DO: More dynamic around directory creation and ability to set data directory on cli.
+# TO DO: Provide options to modify the number of shards.
+# TO DO: Include replica sets possibly?
+# TO DO: Specifiy binaries of mongos and mongod on the cli.
+# TO DO: Review 'getopts" usage".
+# TO DO: Consider "eval" usage with .js file after shard cluster creation.
 
 set -e
 
