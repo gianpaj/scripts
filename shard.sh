@@ -327,7 +327,7 @@ case "$import" in
 # Just making the twitter.json larger so that chunks actually split across the shards.
             for i in {1..3}
             do
-                cp $twitter.json >> $temp.json
+                cp $twitter.json $temp.json
                 cat $temp.json >> $twitter.json
             done
             $del $temp.json # Cleaning up.
