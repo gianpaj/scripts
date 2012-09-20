@@ -94,31 +94,31 @@ done
 
 # Some basic checking to see if MongoD is installed.
 
-which mongod
-if [ ! $? -eq 0 ]
-then
-    which apt-get
-    if [ $? -eq 0 ]
-    then
-        echo -e "\nYou seem to be running a Ubuntu distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian-or-ubuntu-linux/ for further information on installing MongoDB for Ubuntu.\n";
-        exit 1;
-    fi
-    which yum
-    if [ $? -eq 0 ]
-    then
-        echo -e "\nYou seem to be running a Red Hat distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-redhat-centos-or-fedora-linux/ for further information on installing MongoDB for Red Hat.\n";
-        exit 1;
-    fi
-    uname -a | grep Darwin
-    if [ $? -eq 0 ]
-    then
-        echo -e "\nYou seem to be running on OSX, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-os-x/ for further information on installing MongoDB for Mac OS.\n";
-    else
-        echo -e "\nYou do not seem to have mongod in your path or you don't have MongoDB installed, please go to http://www.mongodb.org/downloads to download MongoDB.\n";
-        exit 1;
-    fi
-fi
-
+#which mongod
+#if [ ! $? -eq 0 ]
+#then
+#    which apt-get
+#    if [ $? -eq 0 ]
+#    then
+#        echo -e "\nYou seem to be running a Ubuntu distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian-or-ubuntu-linux/ for further information on installing MongoDB for Ubuntu.\n";
+#        exit 1;
+#    fi
+#    which yum
+#    if [ $? -eq 0 ]
+#    then
+#        echo -e "\nYou seem to be running a Red Hat distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-redhat-centos-or-fedora-linux/ for further information on installing MongoDB for Red Hat.\n";
+#        exit 1;
+#    fi
+#    uname -a | grep Darwin
+#    if [ $? -eq 0 ]
+#    then
+#        echo -e "\nYou seem to be running on OSX, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-os-x/ for further information on installing MongoDB for Mac OS.\n";
+#    else
+#        echo -e "\nYou do not seem to have mongod in your path or you don't have MongoDB installed, please go to http://www.mongodb.org/downloads to download MongoDB.\n";
+#        exit 1;
+#    fi
+#fi
+#
 if [ $(ps auwx | grep -c mongod | grep -v grep) -gt 1 ]
 then
     echo -e "\nThere are currently some mongo(d|s) processes running!!!!\n";
