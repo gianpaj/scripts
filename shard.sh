@@ -29,7 +29,7 @@ then
 fi
 
 # Parse command line options.
-while getopts fhivb:m:o: OPT
+while getopts fhiv:fb:fj:m:o: OPT
 do
     case "$OPT" in
         f)
