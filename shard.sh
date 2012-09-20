@@ -15,19 +15,45 @@ set -e
 
 # Declaring the USAGE variable
 
-USAGE="Usage: `basename $0` [-fhiv] [-o arg] args. To run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
+USAGE="Usage: `basename $0` [-fhiv] [-b arg] [-m arg] [-o arg] args. To run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
 
 # Checking that the script is run with an option
-if (($# == 0))
+if [ $# == 0 ]
 then
     echo -e "\nPlease run with a valid option! Help is printed with '-h'."
     echo -e "\n$USAGE\n";
     exit $E_OPTERROR;
 fi
 
+# Some basic checking to see if MongoD is installed.
+
+which mongod
+if [ ! $? == "0" ]
+then
+    which apt-get
+    if [ $? == 0 ]
+    then
+        echo -e "\nYou seem to be running a Ubuntu distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian-or-ubuntu-linux/ for further information on installing MongoDB for Ubuntu.\n";
+        exit 1;
+    fi
+    which yum
+    if [ $? == 0 ]
+    then
+        echo -e "\nYou seem to be running a Red Hat distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-redhat-centos-or-fedora-linux/ for further information on installing MongoDB for Red Hat.\n";
+        exit 1;
+    fi
+    uname -a | grep Darwin
+    if [ $? == 0 ]
+    then
+        echo -e "\nYou seem to be running on OSX, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-os-x/ for further information on installing MongoDB for Mac OS.\n";
+    else
+        echo -e "\nYou do not seem to have mongod in your path or you don't have MongoDB installed, please go to http://www.mongodb.org/downloads to download MongoDB.\n";
+        exit 1;
+    fi
+fi
+
 # Parse command line options.
-# There were several "getopts" tutorials that were helpful but I should at reference this one - http://wiki.bash-hackers.org/howto/getopts_tutorial
-while getopts hvfijo: OPT
+while getopts fhivb:m:o: OPT
 do
     case "$OPT" in
         f)
@@ -39,9 +65,11 @@ do
         ;;
         h)
             echo -e "\n$USAGE\n";
-            echo "-f: Forcibly answer yes for everything". One of '-f' or '-i' are compulsory.;
+            echo "-b: Forcibly answer yes for everything but reference a bsondump file as an argument.";
+            echo "-f: Forcibly answer yes for everything. Dynamically imports a json file created from retrieving Twitter hashtags.";
             echo "-h: Help";
             echo "-i: Run in interactive mode. One of '-f' or '-i' are compulsory."
+            echo "-m: Forcibly answer yes for everything but reference a json file as an argument.";
             echo "-o: Output to file (requires an argument)";
             echo "-v: Version Information.";
             echo -e "\nAll other options are currently invalid.\n";
@@ -59,8 +87,22 @@ do
             echo -e "\n To allow the script perform its default action and import data from the Interwebs, enter 'y'.\n To import your own json data via 'mongoimport', enter 'j'.\n To import a bson dump with mongorestore, enter 'b'.\n";
             read import
         ;;
+        b)
+            byebye="y"
+            remove="y"
+            answer_d="y"
+            answer_s="y"
+            import="b"
+        ;;
+        m)
+            byebye="y"
+            remove="y"
+            answer_d="y"
+            answer_s="y"
+            import="m"
+        ;;
         v)
-            echo "`basename $0` version 0.2"
+            echo "`basename $0` version 0.3"
             exit 0;
         ;;
         o) OUTPUT_FILE=$OPTARG
@@ -211,7 +253,7 @@ done
 
 $mongod --configsvr --dbpath $cdir --port $s_port --fork --logpath $ldir/configdb.log $MONGOD_PARAMS
 
-echo -e "\n ==> Sleeping for 30 seconds after starting the config server...\n"
+echo -e "\n ==> Sleeping for 60 seconds after starting the config server...\n"
 sleep 60 # Sleeping.....
 
 # Ensuring that all 3 mongod shards have started up correctly!
@@ -232,7 +274,7 @@ fi
 
 $mongos $MONGOS_PARAMS --configdb localhost:$s_port --chunkSize 1 --fork --logpath $ldir/mongos.log
 
-echo -e "\n ==> Sleeping for 90 seconds after starting the mongos...\n";
+echo -e "\n ==> Sleeping for 180 seconds after starting the mongos...\n";
 sleep 180 # Sleeping.....
 
 # Ensuring that the mongos has started up correctly!
