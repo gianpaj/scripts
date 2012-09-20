@@ -366,8 +366,17 @@ esac
 
 # Creating an index so we subsequently create a shard key over it and then sharding the tweets collection.
 
-    mongo twitter --eval 'db.tweets.ensureIndex({"query":1, "max_id":1})'
-    mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {"query": 1, "max_id": 1} } )'
+mongo twitter --eval 'db.tweets.ensureIndex({"query":1, "max_id":1})'
+mongo admin --eval 'db.runCommand( { shardcollection : "twitter.tweets", key : {"query": 1, "max_id": 1} } )'
+
+# Checking that we have successfully sharded a collection.
+if [ chunks=$(mongo twitter --eval 'sh.status()' | grep -q chunks && echo $?)  -eq 0 ]
+then
+    echo -e "\nSuccess, we've sharded a collection....wuhoo!\n";
+else
+    echo -e "\nWe've got a problem here, there's no chunks!\n";
+    exit 20;
+fi
 
 # Tidy up - deleting the json file that we created from Twitter hashtags.
-$del $twitter_json
+#$del $twitter_json
