@@ -141,7 +141,7 @@ $ldir
 $d_dirs
 "
 twitter_json="/var/tmp/twitter.json" # JSON file for the data input to create the sharded collection
-temp="/var/tmp/temp.json" # JSON file for the data input to create the sharded collection
+temp_json="/var/tmp/temp.json" # JSON file for the data input to create the sharded collection
 
 del="rm -rf"
 
@@ -327,10 +327,10 @@ case "$import" in
 # Just making the twitter.json larger so that chunks actually split across the shards.
             for i in {1..3}
             do
-                cp $twitter.json $temp.json
-                cat $temp.json >> $twitter.json
+                cp $twitter_json $temp_json
+                cat $temp_json >> $twitter_json
             done
-            $del $temp.json # Cleaning up.
+            $del $temp_json # Cleaning up.
             mongoimport -d twitter -c tweets --file $twitter_json && echo -e "\nImporting the dynamically created twitter.json file.\n" # Importing the data retrieved from the Interweb.
             else
                 echo -e "\nHTTP GET to Google has failed. Please verify you have network connectivity and HTTP outbound is allowed (unless Google is actually down :S). Surely, it is? It's only a test, not a production DB with real, production data, is it?\n"
