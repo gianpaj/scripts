@@ -95,7 +95,7 @@ done
 # Some basic checking to see if MongoD is installed.
 
 which mongod
-if [ ! $? -eq "0" ]
+if [ ! $? -eq 0 ]
 then
     which apt-get
     if [ $? -eq 0 ]
@@ -199,10 +199,22 @@ nhl
 laliga
 news
 cloud
+ladygaga
 bigdata
 xfactor
-ladygaga
+london
+newyork
+sanfrancisco
+google
+apple
+iphone
+android
+twitter
+facebook
+fb
+music
 "
+
 s_port="20000" # MongoS port
 
 # Following code block defines mongod and mongos. Provides the ability to run different versions of mongod and mongos...woot!!!
@@ -311,7 +323,7 @@ mongo admin --eval 'db.runCommand( { enablesharding : "twitter" } )'
 
 case "$import" in
     y|Y) # Using the "real" Twitter to collate some data
-        echo "\nChecking internet connectivity (http get to google.com)\n";
+        echo -e "\nChecking internet connectivity (http get to google.com)\n";
         curl -s -o /dev/null www.google.com 2>&1
         if [ $? -eq 0 ]
         then
