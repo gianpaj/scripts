@@ -6,6 +6,7 @@
 
 # This script runs in interactive mode by default.
 
+# TO DO: Create functions instead of everything being sequential.
 # TO DO: More clever around "sleeping".
 # TO DO: More dynamic around directory creation and ability to set data directory on cli.
 # TO DO: Provide options to modify the number of shards.
@@ -19,7 +20,7 @@ set -e
 
 # Declaring the USAGE variable (should be 80 lines max)
 
-USAGE="Usage: $(basename $0) [-fhiv] [-fb arg] [-fj arg] [-o arg].\nTo run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
+USAGE="Usage: $(basename $0) [-fhiv] [-b arg] [-m arg] [-o arg].\nTo run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
 
 # Checking that the script is run with an option
 if [ $# -eq 0 ]
@@ -30,7 +31,7 @@ then
 fi
 
 # Parse command line options.
-while getopts fhivo::fb:fj: OPT
+while getopts fhivo::b:j: OPT
 do
     case "$OPT" in
         f)
@@ -40,19 +41,19 @@ do
             answer_s="y"
             import="y"
         ;;
-        fb)
+        b)
             byebye="y"
             remove="y"
             answer_d="y"
             answer_s="y"
             import="b"
         ;;
-        fj)
+        m)
             byebye="y"
             remove="y"
             answer_d="y"
             answer_s="y"
-            import="j"
+            import="m"
         ;;
         h)
             echo -e "$USAGE\n";
@@ -296,7 +297,7 @@ else
 fi
 
 # Configuring the shards - first adding the shards, then sharding the db and the collections. Unable to get the "addshard command to pick up localhost using a variable from a for loop."
-echo -e "Adding shards\n";
+echo -e "Adding shards on ports 10000, 10001 and 10002.\n";
 
 # Should this be less verbosed? - maybe with -v -vv etc option?
 mongo admin --eval 'db.runCommand( { addshard : "localhost:10000" } )'
@@ -348,7 +349,7 @@ case "$import" in
             exit 16;
         fi
     ;;
-    j|J) echo -e "\nImporting bson file.\n";
+    m|M) echo -e "\nManually importing json file.\n";
         read $import_file
         suffix=$(echo $import_file | awk -F. '{print $NF}')
         if [ $suffix == "json"]
@@ -359,7 +360,7 @@ case "$import" in
             exit 17;
         fi
     ;;
-    b|B) echo -e "\nImporting bson file.\n";
+    b|B) echo -e "\nManually importing bson file.\n";
          read $import_file
          suffix=$(echo $import_file | awk -F. '{print $NF}')
          if [ $suffix == "bson"]
