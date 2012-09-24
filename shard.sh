@@ -11,16 +11,21 @@
 # TO DO: More dynamic around directory creation and ability to set data directory on cli.
 # TO DO: Provide options to modify the number of shards.
 # TO DO: Include replica sets possibly?
-# TO DO: Specifiy binaries of mongos and mongod on the cli.
 # TO DO: Review 'getopts" usage".
 # TO DO: Consider "eval" usage with .js file after shard cluster creation.
-# TO DO: Refactor certain areas into a more Functional programming style
 
 set -e
 
 # Declaring the USAGE variable (should be 80 lines max)
 
-USAGE="Usage: $(basename $0) [-fhiv] [-b arg] [-m arg] [-o arg].\nTo run interactively, you need to run with the "-i" option. You will be prompted for various options around mongod, mongos, data file location and importing the data. To force the answer to be 'yes' for everything, i.e. do NOT run interactively run with '-f'. It is compulsory to run with either '-i' or '-f'."
+USAGE="Bash script that sets up a 3-shard cluster and imports data from Twitter in json format.\n
+usage: $(basename $0) [-fhiv] [-b arg] [-m arg] [-o arg].
+To run interactively, you need to run with the "-i" option. You will be prompted
+for various options around mongod, mongos, data file location and importing the data.
+To force the answer to be 'yes' for everything, i.e. do NOT run interactively, run with '-f'.
+It is compulsory to run with either '-i' or '-f'."
+
+VERSION="0.3"
 
 # Checking that the script is run with an option
 if [ $# -eq 0 ]
@@ -35,12 +40,12 @@ fi
 # Checking if mongo is installed by looking for mongod across multiple *nix platforms
 installed_mongo ()
 {
-which mongod
+which -s mongod
 if [ ! $? -eq 0 ]
 then
-    which apt-get
+    which -s apt-get
     [ $? -eq 0 ] && echo -e "\nYou seem to be running a Ubuntu distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian-or-ubuntu-linux/ for further information on installing MongoDB for Ubuntu.\n" && exit 1;
-    which yum
+    which -s yum
     [ $? -eq 0 ] && echo -e "\nYou seem to be running a Red Hat distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-redhat-centos-or-fedora-linux/ for further information on installing MongoDB for Red Hat.\n" && exit 1;
     uname -a | grep Darwin
     [ $? -eq 0 ] && echo -e "\nYou seem to be running on OSX, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-os-x/ for further information on installing MongoDB for Mac OS.\n" && exit 1;
@@ -55,7 +60,7 @@ case "$answer_d" in
     y|Y) mongod=$(which mongod)
     ;;
     n|N) echo -e "What is the full path to mongod?\n"
-        read mongod
+        read -p "> " mongod
     ;;
     *) echo -e "\nPlease enter 'y' or 'n', nothing-else (case-insensitive). Now exiting, bye bye!\n";
         exit 12;
@@ -79,7 +84,7 @@ echo -e "\nmongos is @ '$mongos'\n"
 # Function for stopping all existing mongod and mongos processes..... 
 stop_mongo ()
 {
-if [ $(ps auwx | awk '/mongod/ {print $11}' | grep -vc awk) -gt 0 ]
+if [ $(ps auwx | awk '/mongos/||/mongod/ {print $11}' | grep -vc awk) -gt 0 ]
 then
     echo -e "\nThere are currently some mongo(d|s) processes running!!!!\n";
     case "$byebye" in
@@ -88,7 +93,7 @@ then
             ;;
         n|N) echo -e "\nMoving on, not killing anything.....\n"
             ;;
-        *) echo -e "\nPlease enter one of 'y', 'Y', 'n' or 'N'. Now exiting, bye bye!\n"
+        *) echo -e "Please enter one of 'y', 'Y', 'n' or 'N'. Now exiting, bye bye!\n"
             exit 10;
             ;;
     esac
@@ -324,31 +329,34 @@ do
         ;;
         h)
             echo -e "$USAGE\n";
-            echo "-f:  Forcibly answer yes for everything. Dynamically imports a json file created from retrieving Twitter hashtags.";
-            echo "-fb: Forcibly answer yes for everything but reference a bsondump file as an argument.";
-            echo "-fj: Forcibly answer yes for everything but reference a json file as an argument.";
-            echo "-h:  Help";
-            echo "-i:  Run in interactive mode. One of '-f' or '-i' are compulsory. Run this option if you want to have different or non-default versions of mongod and mongos."
-            echo "-o:  Output to file (requires an argument)";
-            echo "-v:  Version Information.";
+            echo -e "-f  : Forcibly answer yes for everything. Dynamically imports a json file created\n      from retrieving Twitter hashtags.";
+            echo "-fb : Forcibly answer yes for everything but reference a bsondump file as an argument.";
+            echo "-fj : Forcibly answer yes for everything but reference a json file as an argument.";
+            echo "-h  : Help";
+            echo -e "-i  : Run in interactive mode. One of '-f' or '-i' are compulsory. Run this option\n      if you want to have different or non-default versions of mongod and mongos."
+            echo "-o  : Output to file (requires an argument)";
+            echo "-v  : Version Information.";
             exit 0;
         ;;
         i) # The interactive questions over and done with :) Putting them all together to enable a "force-yes" option, there must be a cleaner way though.
-            echo -e "As we're testing, is it ok to kill any mongod and mongos processes that may be running (y/n)?\n";
-            read byebye
-            echo -e "\nHave you previously run this script and want to remove your original data (y/n)? Entering 'y' means that all previous sharding and config data will be removed.\n"
-            read remove
-            echo -e "\nIs mongod @ '$(which mongod)' (y/n)?\n"
-            read answer_d
-            echo -e "Is mongos @ '$(which mongos)' (y/n)?\n"
-            read answer_s
-            echo -e "\nTo allow the script perform its default action and import data from the Interwebs, enter 'y'.\nTo import your own json data via 'mongoimport', enter 'j'.\nTo import a bson dump with mongorestore, enter 'b'.\n";
-            read import
-            [ $import == "y" ] && echo -e "\nDo you want to clean up by removing the dynamically created Twitter json file @ the end? (y/n)?\n"
-            read tidy
+            if [ $(ps auwx | awk '/mongos/||/mongod/ {print $11}' | grep -vc awk) -gt 0 ]
+            then
+                echo -e "As we're testing, is it ok to kill any mongod and mongos processes that may be running (y/n)?";
+                read -n 1 -p '> ' byebye
+            fi
+            echo -e "\n\nHave you previously run this script and want to remove your original data (y/n)?\nEntering 'y' means that all previous sharding and config data will be removed."
+            read -n 1 -p '> ' remove
+            echo -e "\n\nIs mongod @ '$(which mongod)' (y/n)?"
+            read -n 1 -p '> ' answer_d
+            echo -e "\n\nIs mongos @ '$(which mongos)' (y/n)?"
+            read -n 1 -p '> ' answer_s
+            echo -e "\n\nTo allow the script perform its default action and import data from the Interwebs, enter 'y'.\nTo import your own json data via 'mongoimport', enter 'j'.\nTo import a bson dump with mongorestore, enter 'b'.";
+            read -n 1 -p '> ' import
+            [ $import == "y" ] && echo -e "\n\nDo you want to clean up by removing the dynamically created Twitter json file @ the end? (y/n)?"
+            read -n 1 -p '> ' tidy
         ;;
         v)
-            echo -e "\nVersion 0.3 of $(basename $0)\n";
+            echo -e "$(basename $0) version: $VERSION";
             exit 0;
         ;;
         o) OUTPUT_FILE=$OPTARG
@@ -365,7 +373,7 @@ do
     esac
 done
 
-########## Variable Definitions End ##########
+########## Variable Definitions Start ##########
 
 # Setting some variables. As this is only testing, we'll create the data directories under the home directory. This will also ensure that we don't have to worry about permissions issues.
 
