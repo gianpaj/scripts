@@ -22,6 +22,8 @@ USAGE="Usage: $(basename $0) [-fhiv] [-b arg] [-m arg] [-d arg] [-s arg] [-o arg
 
 VERSION="0.4"
 
+PROMPT="Select [y/N]: "
+
 # Checking that the script is run with an option
 if [ $# -eq 0 ]
 then
@@ -346,21 +348,21 @@ do
         i) # The interactive questions over and done with :) Putting them all together to enable a "force-yes" option, there must be a cleaner way though.
             if [ $(ps auwx | egrep 'mongo(d|s)' | grep -vc egrep) -gt 0 ]
             then
-                echo -e "As we're testing, is it ok to kill any mongod and mongos processes that may be running (y/n)?\n";
-                read -n 1 -p '> ' byebye
+                echo -e "As we're testing, is it ok to kill any mongod and mongos processes that may be running?\n";
+                read -n 1 -p $PROMPT byebye
             fi
-            echo -e "\nHave you previously run this script and want to remove your original data (y/n)?\nEntering 'y' means that all previous sharding and config data will be removed.\n"
-            read -n 1 -p '> ' remove
-            echo -e "\nIs mongod @ '$(which mongod)' (y/n)?\n"
-            read -n 1 -p '> ' answer_d
-            echo -e "Is mongos @ '$(which mongos)' (y/n)?\n"
-            read -n 1 -p '> ' answer_s
+            echo -e "\nHave you previously run this script and want to remove your original data?\nEntering 'y' means that all previous sharding and config data will be removed.\n"
+            read -n 1 -p "$PROMPT" remove
+            echo -e "\nIs mongod @ '$(which mongod)'?\n"
+            read -n 1 -p "$PROMPT" answer_d
+            echo -e "Is mongos @ '$(which mongos)'?\n"
+            read -n 1 -p "$PROMPT" answer_s
             echo -e "\nTo allow the script perform its default action and import data from the Interwebs, enter 'y'.\nTo manually import your own json data via 'mongoimport', manually enter 'm'.\nTo manually import a bson dump with mongorestore, enter 'b'.\n";
-            read -n 1 -p '> ' import
+            read -n 1 -p "$PROMPT" import
             if [ $import == "y" ]
             then
-                echo -e "\nDo you want to clean up by removing the dynamically created Twitter json file @ the end? (y/n)?\n"
-                read -n 1 -p '> ' tidy
+                echo -e "\nDo you want to clean up by removing the dynamically created Twitter json file @ the end?\n"
+                read -n 1 -p "$PROMPT" tidy
             else
                 continue
             fi
