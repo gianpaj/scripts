@@ -6,26 +6,21 @@
 
 # This script runs in interactive mode by default.
 
-# TO DO: Create functions instead of everything being sequential.
 # TO DO: More clever around "sleeping".
 # TO DO: More dynamic around directory creation and ability to set data directory on cli.
 # TO DO: Provide options to modify the number of shards.
 # TO DO: Include replica sets possibly?
+# TO DO: Specifiy binaries of mongos and mongod on the cli.
 # TO DO: Review 'getopts" usage".
 # TO DO: Consider "eval" usage with .js file after shard cluster creation.
 
-set -e
+set -x -e
 
-# Declaring the USAGE variable (should be 80 lines max)
+# Declaring the USAGE variable.
 
-USAGE="Bash script that sets up a 3-shard cluster and imports data from Twitter in json format.\n
-usage: $(basename $0) [-fhiv] [-b arg] [-m arg] [-o arg].
-To run interactively, you need to run with the "-i" option. You will be prompted
-for various options around mongod, mongos, data file location and importing the data.
-To force the answer to be 'yes' for everything, i.e. do NOT run interactively, run with '-f'.
-It is compulsory to run with either '-i' or '-f'."
+USAGE="Usage: $(basename $0) [-fhiv] [-b arg] [-m arg] [-d arg] [-s arg] [-o arg]."
 
-VERSION="0.3"
+VERSION="0.4"
 
 # Checking that the script is run with an option
 if [ $# -eq 0 ]
@@ -40,12 +35,12 @@ fi
 # Checking if mongo is installed by looking for mongod across multiple *nix platforms
 installed_mongo ()
 {
-which -s mongod
+which mongod
 if [ ! $? -eq 0 ]
 then
-    which -s apt-get
+    which apt-get
     [ $? -eq 0 ] && echo -e "\nYou seem to be running a Ubuntu distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian-or-ubuntu-linux/ for further information on installing MongoDB for Ubuntu.\n" && exit 1;
-    which -s yum
+    which yum
     [ $? -eq 0 ] && echo -e "\nYou seem to be running a Red Hat distro, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-redhat-centos-or-fedora-linux/ for further information on installing MongoDB for Red Hat.\n" && exit 1;
     uname -a | grep Darwin
     [ $? -eq 0 ] && echo -e "\nYou seem to be running on OSX, please go to http://docs.mongodb.org/manual/tutorial/install-mongodb-on-os-x/ for further information on installing MongoDB for Mac OS.\n" && exit 1;
@@ -60,7 +55,7 @@ case "$answer_d" in
     y|Y) mongod=$(which mongod)
     ;;
     n|N) echo -e "What is the full path to mongod?\n"
-        read -p "> " mongod
+        read mongod
     ;;
     *) echo -e "\nPlease enter 'y' or 'n', nothing-else (case-insensitive). Now exiting, bye bye!\n";
         exit 12;
@@ -84,20 +79,20 @@ echo -e "\nmongos is @ '$mongos'\n"
 # Function for stopping all existing mongod and mongos processes..... 
 stop_mongo ()
 {
-if [ $(ps auwx | awk '/mongos/||/mongod/ {print $11}' | grep -vc awk) -gt 0 ]
-then
-    echo -e "\nThere are currently some mongo(d|s) processes running!!!!\n";
-    case "$byebye" in
-        y|Y) echo -e "\nKilling every mongod and mongos.....\n" 
-            killall mongod mongos
+    if [ $(ps auwx | egrep 'mongo(d|s)' | grep -vc egrep) -gt 0 ]
+    then
+        echo -e "\nThere are currently some mongo(d|s) processes running!!!!\n";
+        case "$byebye" in
+            y|Y) echo -e "\nKilling every mongod and mongos.....\n" 
+                 killall mongod mongos
             ;;
-        n|N) echo -e "\nMoving on, not killing anything.....\n"
+            n|N) echo -e "\nMoving on, not killing anything.....\n"
             ;;
-        *) echo -e "Please enter one of 'y', 'Y', 'n' or 'N'. Now exiting, bye bye!\n"
-            exit 10;
+            *) echo -e "\nPlease enter one of 'y', 'Y', 'n' or 'N'. Now exiting, bye bye!\n"
+                 exit 10;
             ;;
-    esac
-fi
+         esac
+    fi
 }
 
 # Function for starting mongod instances, config server and mongos......
@@ -108,9 +103,20 @@ start_mongo ()
     do
         port=$(echo $dir | awk -F/ '{print $NF}')
         $mongod --shardsvr --dbpath $dir --port 100$port --fork --logpath $ldir/shard.$port.log $MONGOD_PARAMS
-#        continue # Go to next iteration of $dir
     done
-    # Config Server & MongoS configuration (with a small chunk size of 1 MB)
+# MongoS port => for loop to check if there is a free port around this range.
+    for port in {20000..20100}
+    do
+        if [ $(netstat -an | egrep -c $port.*LISTEN) -eq 0 ]
+        then
+            s_port=$port
+            echo -e "\nmongos is running on port $s_port.\n"
+            "break"
+        else
+            continue
+        fi
+    done
+# Config Server & MongoS configuration (with a small chunk size of 1 MB)
 
     $mongod --configsvr --dbpath $cdir --port $s_port --fork --logpath $ldir/configdb.log $MONGOD_PARAMS 
 
@@ -136,7 +142,7 @@ start_mongo ()
     $mongos $MONGOS_PARAMS --configdb localhost:$s_port --chunkSize 1 --fork --logpath $ldir/mongos.log
 
     echo -e "\n ==> Sleeping for 180 seconds after starting the mongos...\n";
-    sleep 180 # Sleeping.....
+    sleep 180
 
     # Ensuring that the mongos has started up correctly!
 
@@ -158,8 +164,7 @@ case "$remove" in
     # If they are created, removing the redundant data so we have a clean start.
     y|Y) for all in $all_dirs
          do
-           echo "$all is here"
-           [ -d $all ] && $del $all/* && echo -e "\nRemoving old sharding & config data in $all.\n"
+           [ -d $all ] && $del $all/* && echo -e "\n ==> Removing old sharding & config data in $all.\n"
          done
     ;;
     n|N) [ -d $all ] && echo -e "\nKeeping the old sharding and config data. Hopefully you're not going to import data that's already there.\n"
@@ -180,7 +185,7 @@ do
     then
         mkdir -p $all
     else
-        echo -e "\nDirectory $all is already there!\n";
+        continue
     fi
 done
 }
@@ -188,9 +193,7 @@ done
 # Function that creates the shards. Unable to pass a variable from bash to the mongo shell inside the "db.runCommand" :(
 create_shard ()
 {
-echo -e "Adding shards on ports 10000, 10001 and 10002.\n";
-
-# Should this be less verbosed? - maybe with -v -vv etc option?
+echo -e "\n ==> Adding shards on ports 10000, 10001 and 10002.\n";
 mongo admin --eval 'db.runCommand( { addshard : "localhost:10000" } )'
 mongo admin --eval 'db.runCommand( { addshard : "localhost:10001" } )'
 mongo admin --eval 'db.runCommand( { addshard : "localhost:10002" } )'
@@ -224,7 +227,7 @@ case "$import" in
                 echo "" >> $twitter_json
             done
             # Just making the twitter.json larger so that chunks actually split across the shards.
-            for i in {1..3}
+            for i in {1..6}
             do
                 cp $twitter_json $temp_json
                 cat $temp_json >> $twitter_json
@@ -289,10 +292,11 @@ if [ $(mongo twitter --eval 'sh.status()' | grep -q chunks && echo $?)  -eq 0 ]
 then
     echo -e "\nSuccess, we've sharded a collection....wuhoo!\n";
 else
-    echo -e "\nWe've got a problem here, there're no chunks!\n";
+    echo -e "\nWe've got a problem here, there are no chunks!\n";
     exit 20;
 fi
 }
+
 
 # Tidy up - deleting the json file that we created from Twitter hashtags.
 tidy_up ()
@@ -302,9 +306,18 @@ $del $twitter_json
 ########## Function Definitions End ##########
 
 # Parse command line options.
-while getopts fhivo::b:j: OPT
+while getopts fhivb:d:m:o:r:s: OPT
 do
     case "$OPT" in
+        b)
+            byebye="y"
+            remove="y"
+            answer_d="y"
+            answer_s="y"
+            import="b"
+        ;;
+        d) mongod=$OPTARG
+        ;;
         f)
             byebye="y"
             remove="y"
@@ -313,12 +326,44 @@ do
             import="y"
             tidy="y"
         ;;
-        b)
-            byebye="y"
-            remove="y"
-            answer_d="y"
-            answer_s="y"
-            import="b"
+        h)
+            echo -e "$USAGE\n";
+            echo "-b:  Forcibly answer yes for everything but manually import and reference a bsondump file as an argument.";
+            echo "-f:  Forcibly answer yes for everything. Dynamically imports a json file created from retrieving Twitter hashtags.";
+            echo "-h:  Help";
+            echo "-i:  Run in interactive mode. Do not use with '-d', -f', '-s'";
+            echo "-m:  Forcibly answer yes for everything but manually import and reference a json file as an argument.";
+            echo "-o:  Output to file (requires an argument)";
+            echo "-r:  CLI option to manually remove all previous data created by previous runs of this script.";
+            echo "-s:  Specify a different version of mongos (requires an argument)";
+            echo "-v:  Version Information.\n";
+            echo "Examples:"
+            echo "`bash shard.sh -f` will forcibly say 'yes' to all options and create the sharded cluster containing data from Twitter";
+            echo "`bash shard.sh -i` will prompt you for answers;"
+            echo "`bash shard.sh -d /usr/bin/mongodb-2.2.0/bin/mongod -s /usr/bin/mongodb-2.2.1.mongos` will run a 2.2.0 mongod instance with a 2.2.1 mongos, removing all previous sharded data";
+            exit 0;
+        ;;
+        i) # The interactive questions over and done with :) Putting them all together to enable a "force-yes" option, there must be a cleaner way though.
+            if [ $(ps auwx | egrep 'mongo(d|s)' | grep -vc egrep) -gt 0 ]
+            then
+                echo -e "As we're testing, is it ok to kill any mongod and mongos processes that may be running (y/n)?\n";
+                read -n 1 -p '> ' byebye
+            fi
+            echo -e "\nHave you previously run this script and want to remove your original data (y/n)?\nEntering 'y' means that all previous sharding and config data will be removed.\n"
+            read -n 1 -p '> ' remove
+            echo -e "\nIs mongod @ '$(which mongod)' (y/n)?\n"
+            read -n 1 -p '> ' answer_d
+            echo -e "Is mongos @ '$(which mongos)' (y/n)?\n"
+            read -n 1 -p '> ' answer_s
+            echo -e "\nTo allow the script perform its default action and import data from the Interwebs, enter 'y'.\nTo manually import your own json data via 'mongoimport', manually enter 'm'.\nTo manually import a bson dump with mongorestore, enter 'b'.\n";
+            read -n 1 -p '> ' import
+            if [ $import == "y" ]
+            then
+                echo -e "\nDo you want to clean up by removing the dynamically created Twitter json file @ the end? (y/n)?\n"
+                read -n 1 -p '> ' tidy
+            else
+                continue
+            fi
         ;;
         m)
             byebye="y"
@@ -327,39 +372,15 @@ do
             answer_s="y"
             import="m"
         ;;
-        h)
-            echo -e "$USAGE\n";
-            echo -e "-f  : Forcibly answer yes for everything. Dynamically imports a json file created\n      from retrieving Twitter hashtags.";
-            echo "-fb : Forcibly answer yes for everything but reference a bsondump file as an argument.";
-            echo "-fj : Forcibly answer yes for everything but reference a json file as an argument.";
-            echo "-h  : Help";
-            echo -e "-i  : Run in interactive mode. One of '-f' or '-i' are compulsory. Run this option\n      if you want to have different or non-default versions of mongod and mongos."
-            echo "-o  : Output to file (requires an argument)";
-            echo "-v  : Version Information.";
-            exit 0;
+        o) OUTPUT_FILE=$OPTARG
         ;;
-        i) # The interactive questions over and done with :) Putting them all together to enable a "force-yes" option, there must be a cleaner way though.
-            if [ $(ps auwx | awk '/mongos/||/mongod/ {print $11}' | grep -vc awk) -gt 0 ]
-            then
-                echo -e "As we're testing, is it ok to kill any mongod and mongos processes that may be running (y/n)?";
-                read -n 1 -p '> ' byebye
-            fi
-            echo -e "\n\nHave you previously run this script and want to remove your original data (y/n)?\nEntering 'y' means that all previous sharding and config data will be removed."
-            read -n 1 -p '> ' remove
-            echo -e "\n\nIs mongod @ '$(which mongod)' (y/n)?"
-            read -n 1 -p '> ' answer_d
-            echo -e "\n\nIs mongos @ '$(which mongos)' (y/n)?"
-            read -n 1 -p '> ' answer_s
-            echo -e "\n\nTo allow the script perform its default action and import data from the Interwebs, enter 'y'.\nTo import your own json data via 'mongoimport', enter 'j'.\nTo import a bson dump with mongorestore, enter 'b'.";
-            read -n 1 -p '> ' import
-            [ $import == "y" ] && echo -e "\n\nDo you want to clean up by removing the dynamically created Twitter json file @ the end? (y/n)?"
-            read -n 1 -p '> ' tidy
+        r) remove=$OPTARG
+        ;;
+        s) mongos=$OPTARG
         ;;
         v)
-            echo -e "$(basename $0) version: $VERSION";
+            echo -e "\nVersion 0.4 of $(basename $0)\n";
             exit 0;
-        ;;
-        o) OUTPUT_FILE=$OPTARG
         ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2;
@@ -400,9 +421,6 @@ del="rm -rf"
 #MONGOD_PARAMS="--nojournal --noprealloc" These options make MongoD quicker to load, NEVER run without a journal in production btw!!!
 MONGOD_PARAMS="--noprealloc"
 MONGOS_PARAMS=""
-
-# MongoS port
-s_port="20000"
 
 # Using Twitter hashtags to pull down data in json format.
 
